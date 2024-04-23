@@ -3,16 +3,43 @@ package main
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 )
 
-func download(){
+func download(sii_decrypt_location string){
 	// download SII_Decrypt.exe
 	fmt.Println("Downloading SII_Decrypt.exe")
-	
+	// https://raw.githubusercontent.com/LastPlayerTR/ets2_damagereset/main/SII_Decrypt.exe
+	url := "https://raw.githubusercontent.com/LastPlayerTR/ets2_damagereset/main/SII_Decrypt.exe"
+	// get the data
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Println("cannot download SII_Decrypt.exe: ", err)
+		fmt.Scanln() // wait for Enter Key
+		return
+	}
+	defer resp.Body.Close()
+	// create the file
+	out, err := os.Create(sii_decrypt_location)
+	if err != nil {
+		fmt.Println("cannot create SII_Decrypt.exe: ", err)
+		fmt.Scanln() // wait for Enter Key
+		return
+	}
+	defer out.Close()
+	// write the body to file
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		fmt.Println("cannot write SII_Decrypt.exe: ", err)
+		fmt.Scanln() // wait for Enter Key
+		return
+	}
+	fmt.Println("SII_Decrypt.exe downloaded")
+	fmt.Println("Please restart the app!")
 
 }
 
@@ -23,15 +50,6 @@ func main() {
 	fmt.Println("Starting...")
 	
 
-	file, err := os.Open("SII_Decrypt.exe")
-	if err != nil {
-		fmt.Println("SII Decrypt not found downloading... ", err)
-		download()
-		fmt.Scanln() // wait for Enter Key
-		return
-	}
-	defer file.Close()
-
 	ex, err := os.Executable()
 	if err != nil {
 		fmt.Println("os exe okunamadi: ", err)
@@ -40,19 +58,36 @@ func main() {
 	}
 	exPath := filepath.Dir(ex)
 	fmt.Printf("Current directory: %s\n", exPath)
+
+	sii_decrypt_location := filepath.Join(exPath , "SII_Decrypt.exe")
+
+	file, err := os.Open(sii_decrypt_location)
+	if err != nil {
+		fmt.Println("SII Decrypt not found downloading... ", err)
+		download(sii_decrypt_location)
+		fmt.Scanln() // wait for Enter Key
+		return
+	}
+	defer file.Close()
+
 	// current directory
 
 	fmt.Printf(filepath.Join(exPath , "game.sii"))
 
-	game_sii_location := os.Args[1]
-
-	if(game_sii_location == "") {
+	game_sii_location := ""
+	
+	if(len(os.Args) < 2) {
 		fmt.Println("argument not found checking self directory...")
 		game_sii_location = filepath.Join(exPath , "game.sii")
-	}
 		
+	}else{
+		game_sii_location = os.Args[1]
 
-	cmd := exec.Command( filepath.Join(exPath , "SII_Decrypt.exe") , game_sii_location)
+	}
+
+
+
+	cmd := exec.Command( sii_decrypt_location , game_sii_location)
 
 
 	_cmd := cmd.Run()
@@ -106,6 +141,13 @@ func main() {
 	// find the line that contains engine_wear , transmission_wear, cabin_wear, engine_wear_unfixable, transmission_wear_unfixable, cabin_wear_unfixable,chassis_wear , chassis_wear_unfixable , wheels_wear_unfixable[
 
 	// loop lines
+	if(len(lines) < 1) {
+		fmt.Println("game.sii is empty")
+		fmt.Scanln() // wait for Enter Key
+		return
+	}
+
+
 	for i, line := range lines {
 		stringd := strings.Split(line, ":")
 		if len(stringd) < 2 {
